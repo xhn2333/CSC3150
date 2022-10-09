@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/lib",
+                "/home/vagrant/work/linux-5.10.147/*",
+                "/home/vagrant/work/linux-5.10.147/include",
+                "/home/vagrant/work/linux-5.10.147/arch/x86/include/generated",
+                "/home/vagrant/work/linux-5.10.147/arch/x86/include",
+                "/home/vagrant/work/linux-5.10.147/include/uapi"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
