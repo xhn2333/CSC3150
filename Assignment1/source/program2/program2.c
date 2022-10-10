@@ -31,7 +31,6 @@ struct wait_opts
 
 extern pid_t kernel_clone(struct kernel_clone_args* kargs);
 extern struct filename* getname_kernel(const char* filename);
-extern struct filename* getname(const char* filename);
 extern long do_wait(struct wait_opts* wo);
 extern int do_execve(
     struct filename* filename,
@@ -40,7 +39,7 @@ extern int do_execve(
 
 void my_wait(pid_t pid)
 {
-    int status = 0;
+    int status;
     struct wait_opts wo;
     struct pid* wo_pid = NULL;
     enum pid_type type;
@@ -49,16 +48,15 @@ void my_wait(pid_t pid)
 
     wo.wo_type = type;
     wo.wo_pid = wo_pid;
-    wo.wo_flags = WEXITED | WUNTRACED;
+    wo.wo_flags = WEXITED;
     wo.wo_info = NULL;
-    wo.wo_stat = (int __user*)&status;
+    wo.wo_stat = status;
     wo.wo_rusage = NULL;
 
-    long result;
-    result = do_wait(&wo);
-    printk("[program2] : do_wait return value is %ld\n", result);
-    char sig[10];
-    printk("[program2] : SIG %d\n", wo.wo_stat & 0x7f);
+    int waitValue;
+    waitValue = do_wait(&wo);
+
+    char sig[10] = "";
     switch (wo.wo_stat & 0x7f)
     {
     case SIGABRT:
@@ -150,9 +148,26 @@ void my_wait(pid_t pid)
     default:
         break;
     }
-    printk("[program2] : get %s", sig);
-    printk("[program2] : Child process terminated");
-    printk("[program2] : The return signal is %d\n", wo.wo_stat & 0x7f);
+    if (sig != "")
+    {
+        printk("[program2] : get %s signal", sig);
+        printk("[program2] : Child process terminated");
+        printk("[program2] : The return signal is %d\n", (wo.wo_stat & 0x7f));
+    }
+    else
+    {
+        if ((wo.wo_stat & 0x7f) == 0)
+        {
+            printk("[program2] : The return signal is %d\n", wo.wo_stat);
+            printk("[program2] : Child process terminated");
+        }
+        else if ((wo.wo_stat >> 8) == 19)
+        {
+            printk("[program2] : get Stop signal");
+            printk("[Program2] : The return signal is %d\n", wo.wo_stat >> 8);
+            printk("[program2] : Child process STOPS");
+        }
+    }
     put_pid(wo_pid);
 
     return;
@@ -160,15 +175,19 @@ void my_wait(pid_t pid)
 
 int my_execve(void)
 {
-    printk("[program2] : Child process");
-
     const char path[] = "/home/vagrant/CSC3150/Assignment1/source/program2/test";
     const char* const argv[] = {path, NULL, NULL};
     const char* const envp[] = {"HOME=/", "PATH=/sbin:/user/sbin:/bin:/usr/bin", NULL};
 
+    printk("[program2] : Child process");
     // printk("%s", *((*getname_kernel(path)).name));
     int result;
-    result = do_execve(getname_kernel(path), argv, envp);
+    result = do_execve(getname_kernel(path), NULL, NULL);
+
+    if (!result)
+    {
+        return 0;
+    }
 
     do_exit(result);
     return 0;
@@ -199,12 +218,12 @@ int my_fork(void* argc)
             .parent_tid = NULL,
             .child_tid = NULL};
 
-    pid_t child_pid = kernel_clone(&args);
-    printk("[program2] : The child process has pid = %d\n", child_pid);
+    pid_t pid = kernel_clone(&args);
+    printk("[program2] : The child process has pid = %d\n", pid);
     printk("[program2] : The parent process has pid = %d\n", (int)current->pid);
     /* execute a test program in child process */
     /* wait until child process terminates */
-    my_wait(child_pid);
+    my_wait(pid);
 
     return 0;
 }

@@ -6,6 +6,7 @@ all:
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
 clean:
 	$(MAKE) -C /lib/modules/$(KVERSION)/build M=$(PWD) clean
+	rm -rf test
 
 test:
 	gcc -o test test.c
