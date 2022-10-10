@@ -175,7 +175,7 @@ void my_wait(pid_t pid)
 
 int my_execve(void)
 {
-    const char path[] = "/home/vagrant/CSC3150/Assignment1/source/program2/test";
+    const char path[] = "/tmp/test";
     const char* const argv[] = {path, NULL, NULL};
     const char* const envp[] = {"HOME=/", "PATH=/sbin:/user/sbin:/bin:/usr/bin", NULL};
 
