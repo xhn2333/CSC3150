@@ -71,23 +71,20 @@ int kbhit(void) {
 void* logs_move(void* t) {
     while (GAME_FLAG == 0) {
         /*  Move the logs  */
-        
+
         if (kbhit()) {
             char ch = getchar();
             if (ch == 'w' || ch == 'W')
                 frog.y -= 1;
             else if (ch == 's' || ch == 'S') {
                 frog.y += 1;
-            }
-            else if (ch == 'a' || ch == 'A') {
+            } else if (ch == 'a' || ch == 'A') {
                 frog.x -= 1;
-            }
-            else if (ch == 'd' || ch == 'D') {
+            } else if (ch == 'd' || ch == 'D') {
                 frog.x += 1;
             }
-            
         }
-        
+
         /*  Check keyboard hits, to change frog's position or quit the game. */
         frog.dir = woods[frog.y].state.dir;
         /*  Check game's status  */
@@ -102,7 +99,7 @@ void* logs_move(void* t) {
             GAME_FLAG = -1;
             break;
         }
-        if (pos_x >= 0 && pos_x < COLUMN - 1 && pos_y != ROW && 
+        if (pos_x >= 0 && pos_x < COLUMN - 1 && pos_y != ROW &&
             abs(pos_x - woods[pos_y].state.x) > woods[pos_y].width) {
             GAME_FLAG = -1;
             break;
