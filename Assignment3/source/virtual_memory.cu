@@ -46,7 +46,6 @@ __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
     u32 offset = addr % vm->PAGESIZE;
     u32 address;
 
-    // A clock, every read/write, the clock time will inrease 1
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
         if (!vm->invert_page_table[i] >> 31) {
             vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES]++;
@@ -54,18 +53,14 @@ __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
     }
 
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
-        // "0" represent valid
         if ((vm->invert_page_table[i + vm->PAGE_ENTRIES] == pageNum) &&
             (!vm->invert_page_table[i])) {
-            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] =
-                0;  // Clear the frequency clock
+            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] = 0;
             address = i * vm->PAGESIZE + offset;
             return vm->buffer[address];
         }
     }
 
-    // If there is no empty space, finad the least recently used block to swap
-    // in
     u32 leastUsedPage = 0;
     *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
@@ -74,7 +69,7 @@ __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
             leastUsedPage = i;
         }
     }
-    // Swap in or swap out
+
     for (int i = 0; i < vm->PAGESIZE; i++) {
         u32 storageSwapAddr =
             vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] *
@@ -86,10 +81,9 @@ __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
         vm->storage[storageSwapAddr] = vm->buffer[swapFrame];
         vm->buffer[swapFrame] = vm->storage[storageAddr];
     }
-    // Refresh the page table
+
     vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] = pageNum;
-    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] =
-        0;  // Clear the frequency clock
+    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] = 0;
     address = leastUsedPage * vm->PAGESIZE + offset;
 
     return vm->buffer[address];
@@ -103,20 +97,16 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
     int is_exit;
     int signal = 1;
 
-    // A clock, every read/write, the clock time will inrease 1
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
         if (!vm->invert_page_table[i] >> 31) {
             vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES]++;
         }
     }
 
-    // Check wether the framw exita
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
-        // "0" represent valid
         if ((vm->invert_page_table[i + vm->PAGE_ENTRIES] == pageNum) &&
             (!vm->invert_page_table[i])) {
-            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] =
-                0;  // Clear the frequency clock
+            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] = 0;
             address = i * vm->PAGESIZE + offset;
             vm->buffer[address] = value;
             return;
@@ -125,9 +115,8 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
 
     // Check whether the corresponding frame is empty
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
-        // "1" represent invalid;
         if (vm->invert_page_table[i] >> 31) {
-            vm->invert_page_table[i] = 0;  // Refresh the page table valid bit
+            vm->invert_page_table[i] = 0;
             *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
 
             vm->invert_page_table[i + vm->PAGESIZE] = pageNum;
@@ -139,8 +128,6 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
         }
     }
 
-    // If there is no empty space, finad the least recently used block to swap
-    // in
     u32 leastUsedPage = 0;
     *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
@@ -149,7 +136,7 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
             leastUsedPage = i;
         }
     }
-    // Swap in or swap out
+
     for (int i = 0; i < vm->PAGESIZE; i++) {
         u32 storageSwapAddr =
             vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] *
@@ -160,10 +147,9 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
 
         vm->storage[storageAddr] = vm->buffer[swapFrame];
     }
-    // Refresh the page table
+
     vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] = pageNum;
-    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] =
-        0;  // Clear the frequency clock
+    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] = 0;
     address = leastUsedPage * vm->PAGESIZE + offset;
 
     vm->buffer[address] = value;
