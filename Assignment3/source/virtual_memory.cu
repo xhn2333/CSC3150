@@ -1,6 +1,7 @@
 ﻿#include <cuda.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include <sys/types.h>
 #include "virtual_memory.h"
 
 __device__ void init_invert_page_table(VirtualMemory* vm) {
@@ -42,9 +43,10 @@ __device__ void vm_init(VirtualMemory* vm,
 
 __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
     /* Complete vm_read function to read single element from data buffer */
+
     u32 pageNum = addr / vm->PAGESIZE;
-    u32 offset = addr % vm->PAGESIZE;
-    u32 address;
+    u32 pageOffset = addr % vm->PAGESIZE;
+    u32 phyAddress;
 
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
         if (!vm->invert_page_table[i] >> 31) {
@@ -56,37 +58,31 @@ __device__ uchar vm_read(VirtualMemory* vm, u32 addr) {
         if ((vm->invert_page_table[i + vm->PAGE_ENTRIES] == pageNum) &&
             (!vm->invert_page_table[i])) {
             vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] = 0;
-            address = i * vm->PAGESIZE + offset;
-            return vm->buffer[address];
+            phyAddress = i * vm->PAGESIZE + pageOffset;
+            return vm->buffer[phyAddress];
         }
     }
 
-    u32 leastUsedPage = 0;
-    *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
-    for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
-        if (vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] >
-            vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES]) {
-            leastUsedPage = i;
-        }
-    }
+    // LRU
+    u32 LRUPage = 0;
+    LRU(vm, &LRUPage);
 
     for (int i = 0; i < vm->PAGESIZE; i++) {
         u32 storageSwapAddr =
-            vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] *
-                vm->PAGESIZE +
+            vm->invert_page_table[LRUPage + vm->PAGE_ENTRIES] * vm->PAGESIZE +
             i;
-        u32 swapFrame = leastUsedPage * vm->PAGESIZE + i;
+        u32 swapFrame = LRUPage * vm->PAGESIZE + i;
         u32 storageAddr = addr + i;
 
         vm->storage[storageSwapAddr] = vm->buffer[swapFrame];
         vm->buffer[swapFrame] = vm->storage[storageAddr];
     }
 
-    vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] = pageNum;
-    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] = 0;
-    address = leastUsedPage * vm->PAGESIZE + offset;
+    vm->invert_page_table[LRUPage + vm->PAGE_ENTRIES] = pageNum;
+    vm->invert_page_table[LRUPage + 2 * vm->PAGE_ENTRIES] = 0;
+    phyAddress = LRUPage * vm->PAGESIZE + pageOffset;
 
-    return vm->buffer[address];
+    return vm->buffer[phyAddress];
 }
 
 __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
@@ -113,46 +109,47 @@ __device__ void vm_write(VirtualMemory* vm, u32 addr, uchar value) {
         }
     }
 
-    // Check whether the corresponding frame is empty
     for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
         if (vm->invert_page_table[i] >> 31) {
             vm->invert_page_table[i] = 0;
             *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
 
             vm->invert_page_table[i + vm->PAGESIZE] = pageNum;
-            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] =
-                0;  // Clear the frequency clock
+            vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] = 0;
             address = i * vm->PAGESIZE + offset;
             vm->buffer[address] = value;
             return;
         }
     }
 
-    u32 leastUsedPage = 0;
-    *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
-    for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
-        if (vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] >
-            vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES]) {
-            leastUsedPage = i;
-        }
-    }
+    u32 LRUPage = 0;
+    LRU(vm, &LRUPage);
 
     for (int i = 0; i < vm->PAGESIZE; i++) {
         u32 storageSwapAddr =
-            vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] *
-                vm->PAGESIZE +
+            vm->invert_page_table[LRUPage + vm->PAGE_ENTRIES] * vm->PAGESIZE +
             i;
-        u32 swapFrame = leastUsedPage * vm->PAGESIZE + i;
+        u32 swapFrame = LRUPage * vm->PAGESIZE + i;
         u32 storageAddr = addr + i;
 
         vm->storage[storageAddr] = vm->buffer[swapFrame];
     }
 
-    vm->invert_page_table[leastUsedPage + vm->PAGE_ENTRIES] = pageNum;
-    vm->invert_page_table[leastUsedPage + 2 * vm->PAGE_ENTRIES] = 0;
-    address = leastUsedPage * vm->PAGESIZE + offset;
+    vm->invert_page_table[LRUPage + vm->PAGE_ENTRIES] = pageNum;
+    vm->invert_page_table[LRUPage + 2 * vm->PAGE_ENTRIES] = 0;
+    address = LRUPage * vm->PAGESIZE + offset;
 
     vm->buffer[address] = value;
+}
+
+__device__ void LRU(VirtualMemory* vm, u32* LRUPage) {
+    *(vm->pagefault_num_ptr) = *(vm->pagefault_num_ptr) + 1;
+    for (int i = 0; i < vm->PAGE_ENTRIES; i++) {
+        if (vm->invert_page_table[i + 2 * vm->PAGE_ENTRIES] >
+            vm->invert_page_table[*LRUPage + 2 * vm->PAGE_ENTRIES]) {
+            *LRUPage = i;
+        }
+    }
 }
 
 __device__ void vm_snapshot(VirtualMemory* vm,

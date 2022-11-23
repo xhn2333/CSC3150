@@ -38,5 +38,6 @@ __device__ void vm_snapshot(VirtualMemory* vm,
                             uchar* results,
                             int offset,
                             int input_size);
+__device__ void LRU(VirtualMemory* vm, u32* LRUPage);
 
 #endif
