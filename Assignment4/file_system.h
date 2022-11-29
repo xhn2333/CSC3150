@@ -27,32 +27,55 @@ struct FileSystem {
     int FILE_BASE_ADDRESS;
 };
 
-__device__ void removeCompact(FileSystem* fs, u32 FCB_pos);
+__device__ bool filename_equal(FileSystem* fs, char* s, char* t);
+__device__ int filename_cmp(FileSystem* fs, char* s, char* t);
 
 class SUPERBLOCK {
    public:
     static __device__ u32 get_storage_end_fp(FileSystem* fs);
-    static __device__ void update_storage_end_fp(FileSystem* fs, u32 fp);
+    static __device__ u32 malloc_free_DB(FileSystem* fs);
+    static __device__ void malloc_DB(FileSystem* fs, u32 blockNum);
+    static __device__ void free_DB(FileSystem* fs, u32 blockNum);
+
+   private:
+    static __device__ bool isMalloced(FileSystem* fs, u32 blockNum);
+};
+
+class DB {
+   public:
+    static __device__ void write_byte(FileSystem* fs,
+                                      uchar s,
+                                      u32 blockNum,
+                                      u32 pos);
+    static __device__ u32 get_blockNum(FileSystem* fs, u32 fp);
+    static __device__ void move_DB(FileSystem* fs, u32 desblock, u32 tarblock);
+    static __device__ u32 get_fp(FileSystem* fs, u32 db);
+
+   private:
+    ;
 };
 
 class FCB {
    public:
-    static __device__ u32 create_FCB(FileSystem* fs, char* filename, u32 size);
-    static __device__ u32 get_size(FileSystem* fs, u32 FCB_pos);
-    static __device__ u32 get_fp(FileSystem* fs, u32 FCB_pos);
-    static __device__ void update_fp(FileSystem* fs, u32 FCB_pos, u32 fp);
-    static __device__ int search_file(FileSystem* fs, char* filename);
-    static __device__ int search_file_by_fp(FileSystem* fs, u32 fp);
-    static __device__ void update_size(FileSystem* fs, u32 FCB_pos, u32 size);
-    static __device__ void get_filename(FileSystem* fs, u32 FCB_pos, char* buf);
+    static __device__ u32 new_FCB(FileSystem* fs, char* filename);
+    static __device__ void get_filename(FileSystem* fs,
+                                        u32 FCBNum,
+                                        char* filename);
+    static __device__ u32 get_db(FileSystem* fs, u32 FCBNum);
+    static __device__ u32 get_size(FileSystem* fs, u32 FCBNum);
+    static __device__ void set_filename(FileSystem* fs,
+                                        u32 FCBNum,
+                                        char* filename);
+    static __device__ void set_db(FileSystem* fs, u32 FCBNum, u32 db);
+    static __device__ void set_size(FileSystem* fs, u32 FCBNum, u32 size);
+
+    static __device__ u32 search_by_filename(FileSystem* fs, char* filename);
+    static __device__ u32 search_by_db(FileSystem* fs, u32 db);
+    static __device__ void compact(FileSystem* fs, u32 FCBNum);
+    static __device__ u32 get_nFCB(FileSystem* fs);
 
    private:
-    static __device__ u32 get_empty_FCB(FileSystem* fs);
-    static __device__ u32 write_filename(FileSystem* fs,
-                                         u32 FCB_pos,
-                                         char* filename);
-
-    static __device__ u32 malloc_storage_block(FileSystem* fs);
+    static __device__ void move_FCB(FileSystem* fs, u32 desFCB, u32 tarFCB);
 };
 
 __device__ void fs_init(FileSystem* fs,
